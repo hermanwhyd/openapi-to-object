@@ -8,11 +8,11 @@ app.use(express.urlencoded({ extended: true })) // for parsing application/x-www
 
 app.post('/convert', async function (req, res, next) {
 
-    // crete a variable
+    // # crete a variable
     const apiDetailV2Spec = req.body;
     const endpointConfig = apiDetailV2Spec.endpointConfig ? JSON.parse(apiDetailV2Spec.endpointConfig) : null;
 
-    // api service
+    // # api service
     let serviceInfo = null;
     try {
       const url =  new URL(endpointConfig?.production_endpoints?.url || 'http://dummy.com');
@@ -33,7 +33,7 @@ app.post('/convert', async function (req, res, next) {
       console.log('Failed parse URL for serviceInfo: ' + e);
     }
 
-    // api operation
+    // # api operation
     const operations = [];
     if (apiDetailV2Spec.apiDefinition) {
       const parser = new OpenAPIParser();
@@ -54,29 +54,44 @@ app.post('/convert', async function (req, res, next) {
       }
     }
 
+    // # tiers
+    const tiers = apiDetailV2Spec.tiers || [];
+
+    // # additionalProperties
+    const additionalProperties = [];
+    if (apiDetailV2Spec.additionalProperties) {
+      for (const [k, v] of Object.entries(apiDetailV2Spec.additionalProperties)) {        additionalProperties.push({
+          "name": k,
+          "value": v,
+          "display": true
+        })
+      }
+    }
+
+    // # build api detail spec
     let apiDetailV4Spec = {
       name: apiDetailV2Spec.name,
       description: apiDetailV2Spec.description,
       context: apiDetailV2Spec.context,
       version: apiDetailV2Spec.version,
-      provider: apiDetailV2Spec.provider,
-      wsdlInfo: {
-        type: "WSDL"
-      },
-      wsdlUrl: "",
+      provider: 'apimanager',
+      lifeCycleStatus: "CREATED",
+      wsdlInfo: null,
+      wsdlUrl: null,
       responseCachingEnabled: apiDetailV2Spec.responseCaching === 'Disabled' ? false : true,
       cacheTimeout: apiDetailV2Spec.cacheTimeout,
       hasThumbnail: false,
       isDefaultVersion: apiDetailV2Spec.isDefaultVersion,
       isRevision: false,
-      revisionId: 1,
+      revisionedApiId: null,
+      revisionId: 0,
       enableSchemaValidation: false,
       enableSubscriberVerification: false,
       type: apiDetailV2Spec.type,
       audience: "PUBLIC",
       transport: apiDetailV2Spec.transport,
       tags: apiDetailV2Spec.tags,
-      policies: apiDetailV2Spec.tier,
+      policies: tiers,
       apiThrottlingPolicy: "Unlimited",
       authorizationHeader: "Authorization",
       securityScheme: [
@@ -84,15 +99,14 @@ app.post('/convert', async function (req, res, next) {
       ],
       maxTps: apiDetailV2Spec.maxTps,
       visibility: apiDetailV2Spec.visibility,
+      visibleRoles: [],
       visibleTenants: [],
       mediationPolicies: [],
+      apiPolicies: [],
       subscriptionAvailability: "CURRENT_TENANT",
-      additionalProperties: apiDetailV2Spec.additionalProperties ?? [],
-      additionalPropertiesMap: [],
-      monetization: {
-        enabled: false,
-        properties: null
-      },
+      subscriptionAvailableTenants: [],
+      additionalProperties: additionalProperties,
+      monetization: null,
       accessControl: "NONE",
       accessControlRoles: [],
       businessInformation: apiDetailV2Spec.businessInformation,
@@ -100,37 +114,27 @@ app.post('/convert', async function (req, res, next) {
       websubSubscriptionConfiguration: {
         enable: false
       },
-      workflowStatus: "CREATED",
       "endpointConfig": endpointConfig,
-      "endpointImplementationType": "INLINE",
-      "scopes": [
-        {
-          "scope": {
-            "name": "apim:api_view",
-            "displayName": "api_view",
-            "description": "This Scope can used to view Apis",
-            "bindings": [
-              "admin",
-              "Internal/creator",
-              "Internal/publisher"
-            ]
-          },
-          "shared": true
-        }
-      ],
+      "endpointImplementationType": "ENDPOINT",
+      "scopes": [],
       "operations": operations,
       "threatProtectionPolicies": null,
       "categories": [],
+      "keyManagers": [
+          "all"
+      ],
       "serviceInfo": serviceInfo,
       "advertiseInfo": {
-        "advertised": false
+        "advertised": false,
+        "apiExternalProductionEndpoint": null,
+        "apiExternalSandboxEndpoint": null,
+        "originalDevPortalUrl": null,
+        "apiOwner": "apimanager",
+        "vendor": "WSO2"
       },
       "gatewayVendor": "wso2",
       "gatewayType": "wso2/synapse",
-      "asyncTransportProtocols": [
-        "http",
-        "https"
-      ]
+      "asyncTransportProtocols": []
     };
 
     return res.json(apiDetailV4Spec);
